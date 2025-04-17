@@ -4,7 +4,6 @@ import (
 	"std"
 	"strconv"
 
-	"gno.land/p/demo/grc/grc721"
 	"gno.land/p/demo/ufmt"
 )
 
@@ -17,6 +16,8 @@ func Symbol() string     { return symbol }
 func TokenCount() uint64 { return uint64(owners.Size()) }
 
 func BalanceOf(user std.Address) uint64 {
+	assertIsTerminated()
+
 	balance, err := iBalanceOf(user)
 	if err != nil {
 		panic(err)
@@ -25,7 +26,9 @@ func BalanceOf(user std.Address) uint64 {
 	return balance
 }
 
-func OwnerOf(tid grc721.TokenID) std.Address {
+func OwnerOf(tid string) std.Address {
+	assertIsTerminated()
+
 	owner, err := iOwnerOf(tid)
 	if err != nil {
 		panic(err)
@@ -36,10 +39,14 @@ func OwnerOf(tid grc721.TokenID) std.Address {
 
 
 func IsApprovedForAll(owner, user std.Address) bool {
+	assertIsTerminated()
+
 	return iIsApprovedForAll(owner, user)
 }
 
-func GetApproved(tid grc721.TokenID) std.Address {
+func GetApproved(tid string) std.Address {
+	assertIsTerminated()
+
 	addr, err := iGetApproved(tid)
 	if err != nil {
 		panic(err)
@@ -48,7 +55,10 @@ func GetApproved(tid grc721.TokenID) std.Address {
 	return addr
 }
 
+// TokenIdsOf returns all token ids of the input address
 func TokenIdsOf(user std.Address) []string {
+	assertIsTerminated()
+
 	ids := make([]string, 0)
 	owners.Iterate("", "", func(key string, value any) bool {
 		if value == user {
@@ -60,7 +70,9 @@ func TokenIdsOf(user std.Address) []string {
 }
 
 // Setters
-func Approve(user std.Address, tid grc721.TokenID) {
+func Approve(user std.Address, tid string) {
+	assertIsTerminated()
+
 	err := iApprove(user, tid)
 	if err != nil {
 		panic(err)
@@ -68,13 +80,17 @@ func Approve(user std.Address, tid grc721.TokenID) {
 }
 
 func SetApprovalForAll(user std.Address, approved bool) {
+	assertIsTerminated()
+
 	err := iSetApprovalForAll(user, approved)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func TransferFrom(from, to std.Address, tid grc721.TokenID) {
+func TransferFrom(from, to std.Address, tid string) {
+	assertIsTerminated()
+
 	err := iTransferFrom(from, to, tid)
 	if err != nil {
 		panic(err)
@@ -82,7 +98,9 @@ func TransferFrom(from, to std.Address, tid grc721.TokenID) {
 }
 
 // Admin
-func Mint(to std.Address, tid grc721.TokenID) {
+func Mint(to std.Address, tid string) {
+	assertIsTerminated()
+
 	assertIsAdmin()
 	err := iMint(to, tid)
 	if err != nil {
@@ -90,7 +108,9 @@ func Mint(to std.Address, tid grc721.TokenID) {
 	}
 }
 
-func Burn(tid grc721.TokenID) {
+func Burn(tid string) {
+	assertIsTerminated()
+
 	assertIsAdmin()
 	err := iBurn(tid)
 	if err != nil {
@@ -101,6 +121,8 @@ func Burn(tid grc721.TokenID) {
 // Render
 func Render(path string) string {
 	switch {
+	case isTerminated:
+		return "this path is terminated (current path: " + nextPkgPath + ")\n"
 	case path == "":
 		return iRenderHome()
 	default:
@@ -125,29 +147,29 @@ func iBalanceOf(addr std.Address) (uint64, error) {
 }
 
 // OwnerOf returns owner of input token id
-func iOwnerOf(tid grc721.TokenID) (std.Address, error) {
+func iOwnerOf(tid string) (std.Address, error) {
 	owner, found := owners.Get(string(tid))
 	if !found {
-		return "", grc721.ErrInvalidTokenId
+		return "", ErrInvalidTokenId
 	}
 
 	return owner.(std.Address), nil
 }
 
 // TokenURI returns the URI of input token id
-func iTokenURI(tid grc721.TokenID) (string, error) {
+func iTokenURI(tid string) (string, error) {
 	uri, found := tokenURIs.Get(string(tid))
 	if !found {
-		return "", grc721.ErrInvalidTokenId
+		return "", ErrInvalidTokenId
 	}
 
 	return uri.(string), nil
 }
 
-func iSetTokenURI(tid grc721.TokenID, tURI grc721.TokenURI) (bool, error) {
-	// check for invalid grc721.TokenID
+func iSetTokenURI(tid string, tURI string) (bool, error) {
+	// check for invalid string
 	if !exists(tid) {
-		return false, grc721.ErrInvalidTokenId
+		return false, ErrInvalidTokenId
 	}
 
 	// check for the right owner
@@ -157,7 +179,7 @@ func iSetTokenURI(tid grc721.TokenID, tURI grc721.TokenURI) (bool, error) {
 	}
 	caller := std.PreviousRealm().Address()
 	if caller != owner {
-		return false, grc721.ErrCallerIsNotOwner
+		return false, ErrCallerIsNotOwner
 	}
 	tokenURIs.Set(string(tid), string(tURI))
 	return true, nil
@@ -176,7 +198,7 @@ func iIsApprovedForAll(owner, operator std.Address) bool {
 }
 
 // Approve approves the input address for particular token
-func iApprove(to std.Address, tid grc721.TokenID) error {
+func iApprove(to std.Address, tid string) error {
 	if err := isValidAddress(to); err != nil {
 		return err
 	}
@@ -186,17 +208,17 @@ func iApprove(to std.Address, tid grc721.TokenID) error {
 		return err
 	}
 	if owner == to {
-		return grc721.ErrApprovalToCurrentOwner
+		return ErrApprovalToCurrentOwner
 	}
 
 	caller := std.PreviousRealm().Address()
 	if caller != owner && !iIsApprovedForAll(owner, caller) {
-		return grc721.ErrCallerIsNotOwnerOrApproved
+		return ErrCallerIsNotOwnerOrApproved
 	}
 
 	tokenApprovals.Set(string(tid), to.String())
 	std.Emit(
-		grc721.ApprovalEvent,
+		ApprovalEvent,
 		"owner", string(owner),
 		"to", string(to),
 		"tokenId", string(tid),
@@ -206,10 +228,10 @@ func iApprove(to std.Address, tid grc721.TokenID) error {
 }
 
 // GetApproved return the approved address for token
-func iGetApproved(tid grc721.TokenID) (std.Address, error) {
+func iGetApproved(tid string) (std.Address, error) {
 	addr, found := tokenApprovals.Get(string(tid))
 	if !found {
-		return zeroAddress, grc721.ErrTokenIdNotHasApproved
+		return zeroAddress, ErrTokenIdNotHasApproved
 	}
 
 	return std.Address(addr.(string)), nil
@@ -218,7 +240,7 @@ func iGetApproved(tid grc721.TokenID) (std.Address, error) {
 // SetApprovalForAll can approve the operator to operate on all tokens
 func iSetApprovalForAll(operator std.Address, approved bool) error {
 	if err := isValidAddress(operator); err != nil {
-		return grc721.ErrInvalidAddress
+		return ErrInvalidAddress
 	}
 
 	caller := std.PreviousRealm().Address()
@@ -228,10 +250,10 @@ func iSetApprovalForAll(operator std.Address, approved bool) error {
 // Safely transfers `tokenId` token from `from` to `to`, checking that
 // contract recipients are aware of the GRC721 protocol to prevent
 // tokens from being forever locked.
-func iSafeTransferFrom(from, to std.Address, tid grc721.TokenID) error {
+func iSafeTransferFrom(from, to std.Address, tid string) error {
 	caller := std.PreviousRealm().Address()
 	if !isApprovedOrOwner(caller, tid) {
-		return grc721.ErrCallerIsNotOwnerOrApproved
+		return ErrCallerIsNotOwnerOrApproved
 	}
 
 	err := transfer(from, to, tid)
@@ -247,10 +269,10 @@ func iSafeTransferFrom(from, to std.Address, tid grc721.TokenID) error {
 }
 
 // Transfers `tokenId` token from `from` to `to`.
-func iTransferFrom(from, to std.Address, tid grc721.TokenID) error {
+func iTransferFrom(from, to std.Address, tid string) error {
 	caller := std.PreviousRealm().Address()
 	if !isApprovedOrOwner(caller, tid) {
-		return grc721.ErrCallerIsNotOwnerOrApproved
+		return ErrCallerIsNotOwnerOrApproved
 	}
 
 	err := transfer(from, to, tid)
@@ -262,13 +284,13 @@ func iTransferFrom(from, to std.Address, tid grc721.TokenID) error {
 }
 
 // Mints `tokenId` and transfers it to `to`.
-func iMint(to std.Address, tid grc721.TokenID) error {
+func iMint(to std.Address, tid string) error {
 	return mint(to, tid)
 }
 
 // Mints `tokenId` and transfers it to `to`. Also checks that
 // contract recipients are using GRC721 protocol
-func iSafeMint(to std.Address, tid grc721.TokenID) error {
+func iSafeMint(to std.Address, tid string) error {
 	err := mint(to, tid)
 	if err != nil {
 		return err
@@ -281,7 +303,7 @@ func iSafeMint(to std.Address, tid grc721.TokenID) error {
 	return nil
 }
 
-func iBurn(tid grc721.TokenID) error {
+func iBurn(tid string) error {
 	owner, err := iOwnerOf(tid)
 	if err != nil {
 		return err
@@ -299,7 +321,7 @@ func iBurn(tid grc721.TokenID) error {
 	owners.Remove(string(tid))
 
 	std.Emit(
-		grc721.BurnEvent,
+		BurnEvent,
 		"from", string(owner),
 		"tokenId", string(tid),
 	)
@@ -314,14 +336,14 @@ func iBurn(tid grc721.TokenID) error {
 // Helper for SetApprovalForAll()
 func setApprovalForAll(owner, operator std.Address, approved bool) error {
 	if owner == operator {
-		return grc721.ErrApprovalToCurrentOwner
+		return ErrApprovalToCurrentOwner
 	}
 
 	key := owner.String() + ":" + operator.String()
 	operatorApprovals.Set(key, approved)
 
 	std.Emit(
-		grc721.ApprovalForAllEvent,
+		ApprovalForAllEvent,
 		"owner", string(owner),
 		"to", string(operator),
 		"approved", strconv.FormatBool(approved),
@@ -331,16 +353,16 @@ func setApprovalForAll(owner, operator std.Address, approved bool) error {
 }
 
 // Helper for TransferFrom() and SafeTransferFrom()
-func transfer(from, to std.Address, tid grc721.TokenID) error {
+func transfer(from, to std.Address, tid string) error {
 	if err := isValidAddress(from); err != nil {
-		return grc721.ErrInvalidAddress
+		return ErrInvalidAddress
 	}
 	if err := isValidAddress(to); err != nil {
-		return grc721.ErrInvalidAddress
+		return ErrInvalidAddress
 	}
 
 	if from == to {
-		return grc721.ErrCannotTransferToSelf
+		return ErrCannotTransferToSelf
 	}
 
 	owner, err := iOwnerOf(tid)
@@ -348,7 +370,7 @@ func transfer(from, to std.Address, tid grc721.TokenID) error {
 		return err
 	}
 	if owner != from {
-		return grc721.ErrTransferFromIncorrectOwner
+		return ErrTransferFromIncorrectOwner
 	}
 
 	// beforeTokenTransfer(from, to, tid, 1)
@@ -359,7 +381,7 @@ func transfer(from, to std.Address, tid grc721.TokenID) error {
 		return err
 	}
 	if owner != from {
-		return grc721.ErrTransferFromIncorrectOwner
+		return ErrTransferFromIncorrectOwner
 	}
 
 	tokenApprovals.Remove(string(tid))
@@ -378,7 +400,7 @@ func transfer(from, to std.Address, tid grc721.TokenID) error {
 	owners.Set(string(tid), to)
 
 	std.Emit(
-		grc721.TransferEvent,
+		TransferEvent,
 		"from", string(from),
 		"to", string(to),
 		"tokenId", string(tid),
@@ -390,20 +412,20 @@ func transfer(from, to std.Address, tid grc721.TokenID) error {
 }
 
 // Helper for Mint() and SafeMint()
-func mint(to std.Address, tid grc721.TokenID) error {
+func mint(to std.Address, tid string) error {
 	if err := isValidAddress(to); err != nil {
 		return err
 	}
 
 	if exists(tid) {
-		return grc721.ErrTokenIdAlreadyExists
+		return ErrTokenIdAlreadyExists
 	}
 
 	// beforeTokenTransfer(zeroAddress, to, tid, 1)
 
 	// Check that tokenId was not minted by `beforeTokenTransfer`
 	if exists(tid) {
-		return grc721.ErrTokenIdAlreadyExists
+		return ErrTokenIdAlreadyExists
 	}
 
 	toBalance, err := iBalanceOf(to)
@@ -415,7 +437,7 @@ func mint(to std.Address, tid grc721.TokenID) error {
 	owners.Set(string(tid), to)
 
 	std.Emit(
-		grc721.MintEvent,
+		MintEvent,
 		"to", string(to),
 		"tokenId", string(tid),
 	)
@@ -425,7 +447,7 @@ func mint(to std.Address, tid grc721.TokenID) error {
 	return nil
 }
 
-func isApprovedOrOwner(addr std.Address, tid grc721.TokenID) bool {
+func isApprovedOrOwner(addr std.Address, tid string) bool {
 	owner, found := owners.Get(string(tid))
 	if !found {
 		return false
@@ -444,20 +466,20 @@ func isApprovedOrOwner(addr std.Address, tid grc721.TokenID) bool {
 }
 
 // Checks if token id already exists
-func exists(tid grc721.TokenID) bool {
+func exists(tid string) bool {
 	_, found := owners.Get(string(tid))
 	return found
 }
 
-// func beforeTokenTransfer(from, to std.Address, firstTokenId grc721.TokenID, batchSize uint64) {
+// func beforeTokenTransfer(from, to std.Address, firstTokenId string, batchSize uint64) {
 // 	// TODO: Implementation
 // }
 
-// func afterTokenTransfer(from, to std.Address, firstTokenId grc721.TokenID, batchSize uint64) {
+// func afterTokenTransfer(from, to std.Address, firstTokenId string, batchSize uint64) {
 // 	// TODO: Implementation
 // }
 
-// func checkOnGRC721Received(from, to std.Address, tid grc721.TokenID) bool {
+// func checkOnGRC721Received(from, to std.Address, tid string) bool {
 // 	// TODO: Implementation
 // 	return true
 // }

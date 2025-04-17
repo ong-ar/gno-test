@@ -327,20 +327,6 @@ else
   echo "[v1]👎 $FAIL_COUNT tests failed."
 fi
 
-for i in $(seq 10 10000); do
-  test_maketx "[v1] Mint(admin, $i) (from: admin)" \
-  "
-    gnokey maketx call \
-      -pkgpath '$V1_PACKAGE_PATH' \
-      -chainid '$CHAIN_ID' \
-      -func 'Mint' \
-      -args '$ADMIN' \
-      -args "$i" \
-      -gas-fee 1000000ugnot \
-      -gas-wanted 100000000 \
-  " \
-  "$ADMIN" \
-  "OK!"
-done
+echo "\n"
 
 FAIL_COUNT=0

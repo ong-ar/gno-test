@@ -7,6 +7,8 @@ import (
 	v1 "gno.land/r/test/v1"
 )
 
+const zeroAddress std.Address = ""
+
 var (
 	name                 string
 	symbol               string
@@ -18,14 +20,9 @@ var (
 
 	nextPkgPath          string
 	admin			     std.Address
-	isTerminated         bool
 )
 
 func init() {
-	nextPkgPath = ""
-	admin = std.OriginCaller()
-	isTerminated = false
-
 	prevName, prevSymbol, prevOwners, prevBalances, prevTokenApprovals, prevTokenURIs, prevOperatorApprovals := v1.GetRefs()
 
 	name = *prevName
@@ -35,6 +32,9 @@ func init() {
 	tokenApprovals = *prevTokenApprovals
 	tokenURIs = *prevTokenURIs
 	operatorApprovals = *prevOperatorApprovals
+
+	nextPkgPath = ""
+	admin = std.OriginCaller()
 }
 
 // external methods
@@ -42,11 +42,7 @@ func GetRefs() (*string, *string, *avl.Tree, *avl.Tree, *avl.Tree, *avl.Tree, *a
 	pkgPath := std.PreviousRealm().PkgPath()
 
 	if nextPkgPath == "" || pkgPath == "" || nextPkgPath != pkgPath {
-		panic(ErrPreviousRealmPkgPathMismatch)
-	}
-
-	if !isTerminated {
-		panic(ErrIsNotTerminated)
+		panic("previous realm package path mismatch")
 	}
 	
 	assertIsAdmin()
@@ -64,14 +60,8 @@ func SetAdmin(addr std.Address) {
 	assertIsAdmin()
 
 	if !addr.IsValid() {
-		panic(ErrInvalidAddress)
+		panic("invalid address")
 	}
 
 	admin = addr
-}
-
-func SetIsTerminated(terminated bool) {
-	assertIsAdmin()
-
-	isTerminated = terminated
 }

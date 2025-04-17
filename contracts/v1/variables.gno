@@ -6,8 +6,6 @@ import (
 	"gno.land/p/demo/avl"
 )
 
-const zeroAddress std.Address = ""
-
 var (
 	name                 string
 	symbol               string
@@ -19,6 +17,7 @@ var (
 
 	nextPkgPath          string
 	admin			     std.Address
+	isTerminated         bool
 )
 
 func init() {
@@ -32,6 +31,7 @@ func init() {
 
 	nextPkgPath = ""
 	admin = std.OriginCaller()
+	isTerminated = false
 }
 
 // external methods
@@ -39,7 +39,11 @@ func GetRefs() (*string, *string, *avl.Tree, *avl.Tree, *avl.Tree, *avl.Tree, *a
 	pkgPath := std.PreviousRealm().PkgPath()
 
 	if nextPkgPath == "" || pkgPath == "" || nextPkgPath != pkgPath {
-		panic("previous realm package path mismatch")
+		panic(ErrPreviousRealmPkgPathMismatch)
+	}
+
+	if !isTerminated {
+		panic(ErrIsNotTerminated)
 	}
 	
 	assertIsAdmin()
@@ -57,8 +61,14 @@ func SetAdmin(addr std.Address) {
 	assertIsAdmin()
 
 	if !addr.IsValid() {
-		panic("invalid address")
+		panic(ErrInvalidAddress)
 	}
 
 	admin = addr
+}
+
+func SetIsTerminated(terminated bool) {
+	assertIsAdmin()
+
+	isTerminated = terminated
 }

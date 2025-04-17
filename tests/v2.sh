@@ -14,8 +14,8 @@ test_maketx "[v2] Deploying (from: admin) [fail]" \
  "previous realm package path mismatch" \
  "true"
 
- ## 컨트랙트 소유자가 아닌 사람이 Mint 시도 (실패)
- test_maketx "[v1] SetNextPkgPath(v2_package_path) (from: admin)" \
+## v1 nextPkgPath 설정
+test_maketx "[v1] SetNextPkgPath(v2_package_path) (from: admin)" \
  "
   gnokey maketx call \
     -pkgpath '$V1_PACKAGE_PATH' \
@@ -29,7 +29,49 @@ test_maketx "[v2] Deploying (from: admin) [fail]" \
  "OK!" \
 
 
- ## v2 배포 테스트
+## v2 배포 테스트 (실패)
+test_maketx "[v2] Deploying (from: admin) [fail]" \
+ "
+  gnokey maketx addpkg \
+    -pkgpath '$V2_PACKAGE_PATH' \
+    -pkgdir '$V2_CONTRACT_PATH' \
+    -chainid '$CHAIN_ID' \
+    -gas-fee 100000000ugnot \
+    -gas-wanted 1000000000 \
+ " \
+ "$ADMIN" \
+ "this path is not terminated" \
+ "true"
+
+## v1 isTerminated 설정
+test_maketx "[v1] SetIsTerminated(true) (from: admin)" \
+ "
+  gnokey maketx call \
+    -pkgpath '$V1_PACKAGE_PATH' \
+    -chainid '$CHAIN_ID' \
+    -func 'SetIsTerminated' \
+    -args 'true' \
+    -gas-fee 1000000ugnot \
+    -gas-wanted 100000000 \
+ " \
+ "$ADMIN" \
+ "OK!" \
+
+## v2 배포 테스트 (실패)
+test_maketx "[v2] Deploying (from: test1) [fail]" \
+ "
+  gnokey maketx addpkg \
+    -pkgpath '$V2_PACKAGE_PATH' \
+    -pkgdir '$V2_CONTRACT_PATH' \
+    -chainid '$CHAIN_ID' \
+    -gas-fee 100000000ugnot \
+    -gas-wanted 1000000000 \
+ " \
+ "$TEST1" \
+ "restricted access" \
+ "true" \
+
+## v2 배포 테스트
 test_maketx "[v2] Deploying (from: admin)" \
  "
   gnokey maketx addpkg \
@@ -367,9 +409,9 @@ test_query "[v2] TokenIdsOf(test2)" \
 
 
 if [ $FAIL_COUNT -eq 0 ]; then
-  echo "[v1]👍 All tests passed!"
+  echo "[v2]👍 All tests passed!"
 else
-  echo "[v1]👎 $FAIL_COUNT tests failed."
+  echo "[v2]👎 $FAIL_COUNT tests failed."
 fi
 
 FAIL_COUNT=0
